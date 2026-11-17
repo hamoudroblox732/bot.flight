@@ -267,14 +267,22 @@ async function runOnboardingSetup(guild) {
 
   const defaultChannels = defaultChannelNames.map((name) =>
     guild.channels.cache.find((channel) =>
-      channel.type === ChannelType.GuildText &&
-      channel.name === name &&
-      channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.SendMessages)
+      channel.type === ChannelType.GuildText && channel.name === name
     )
   );
 
   if (defaultChannels.some((channel) => !channel)) {
     throw new Error("DEFAULT_CHANNELS_MISSING");
+  }
+
+  // Discord requires at least five default channels to allow members to send messages.
+  // These are public conversation channels, so explicitly grant @everyone access.
+  for (const channel of defaultChannels) {
+    await channel.permissionOverwrites.edit(guild.roles.everyone, {
+      ViewChannel: true,
+      SendMessages: true,
+      ReadMessageHistory: true
+    }, { reason: "Prepare public default channels for Discord Onboarding" });
   }
 
   const notificationRoles = [];
