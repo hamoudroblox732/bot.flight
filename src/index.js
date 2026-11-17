@@ -134,7 +134,9 @@ function buildOverwrites(guild, roles, access, type) {
     ? STAFF_ROLES
     : access === "crew"
       ? CREW_ROLES
-      : [];
+      : type === "notice"
+        ? STAFF_ROLES
+        : [];
 
   for (const name of allowedNames) {
     const role = roles.get(name);
