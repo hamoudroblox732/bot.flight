@@ -18,6 +18,12 @@ const commands = [
     .setDMPermission(false)
     .toJSON(),
   new SlashCommandBuilder()
+    .setName("lock-everyone-channel-tools")
+    .setDescription("قفل إدارة الرومات وإنشاء الثريدات عن everyone")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDMPermission(false)
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName("add-notification-roles")
     .setDescription("إضافة رولات الإشعار للأعضاء")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
