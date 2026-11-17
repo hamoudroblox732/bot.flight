@@ -16,6 +16,12 @@ const commands = [
     .setDescription("إنشاء وتجهيز سيرفر Karen Flight بالكامل")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName("onboarding-setup")
+    .setDescription("إعداد خيارات إشعارات الأعضاء في Onboarding")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDMPermission(false)
     .toJSON()
 ];
 
