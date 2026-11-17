@@ -6,7 +6,8 @@ const {
   ChannelType,
   PermissionFlagsBits,
   EmbedBuilder,
-  Events
+  Events,
+  REST
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
@@ -238,12 +239,131 @@ async function runSetup(guild) {
   return { categoriesCreated, channelsCreated, channelsFound, rolesCreated: roles.size };
 }
 
+
+const NOTIFICATION_ROLE_DEFINITIONS = [
+  { name: "إشعارات الأخبار", color: 0xD6B56D, title: "الأخبار", description: "إعلانات وأخبار Karen Flight.", emoji: "📰" },
+  { name: "إشعارات الرحلات", color: 0x3977C3, title: "الرحلات", description: "مواعيد الرحلات والحجوزات والإعلانات المتعلقة بها.", emoji: "✈️" },
+  { name: "إشعارات التحديثات", color: 0x58A58C, title: "التحديثات", description: "تحديثات الشركة والسيرفر والخدمات.", emoji: "🔔" },
+  { name: "إشعارات الفعاليات", color: 0xA58AC7, title: "الفعاليات", description: "الفعاليات والمسابقات والأنشطة.", emoji: "🎉" }
+];
+
+async function runOnboardingSetup(guild) {
+  await guild.roles.fetch();
+  await guild.channels.fetch();
+
+  if (!guild.features.includes("COMMUNITY")) {
+    throw new Error("COMMUNITY_REQUIRED");
+  }
+
+  const defaultChannelNames = [
+    "『الأسئلة・❔』",
+    "『الشات・💬』",
+    "『الصور・📸』",
+    "『الاقتراحات・💡』",
+    "『الدعم・🎫』",
+    "『حجز-الرحلات・🎟️』",
+    "『رحلات-مباشرة・🛫』"
+  ];
+
+  const defaultChannels = defaultChannelNames.map((name) =>
+    guild.channels.cache.find((channel) =>
+      channel.type === ChannelType.GuildText &&
+      channel.name === name &&
+      channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.SendMessages)
+    )
+  );
+
+  if (defaultChannels.some((channel) => !channel)) {
+    throw new Error("DEFAULT_CHANNELS_MISSING");
+  }
+
+  const notificationRoles = [];
+  for (const definition of NOTIFICATION_ROLE_DEFINITIONS) {
+    let role = guild.roles.cache.find((item) => item.name === definition.name);
+    if (!role) {
+      role = await guild.roles.create({
+        name: definition.name,
+        color: definition.color,
+        permissions: [],
+        mentionable: true,
+        reason: "Karen Flight notification onboarding roles"
+      });
+    }
+    notificationRoles.push({ definition, role });
+  }
+
+  const prompts = [{
+    id: "0",
+    type: 0,
+    title: "وش الإشعارات اللي تبي توصلك؟",
+    single_select: false,
+    required: false,
+    in_onboarding: true,
+    options: notificationRoles.map(({ definition, role }) => ({
+      title: definition.title,
+      description: definition.description,
+      emoji_name: definition.emoji,
+      role_ids: [role.id],
+      channel_ids: []
+    }))
+  }];
+
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+  await rest.put(`/guilds/${guild.id}/onboarding`, {
+    body: {
+      prompts,
+      default_channel_ids: defaultChannels.map((channel) => channel.id),
+      enabled: true,
+      mode: 0
+    },
+    reason: "Configure Karen Flight notification preferences"
+  });
+
+  return { rolesCreatedOrFound: notificationRoles.length, defaultChannels: defaultChannels.length };
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Karen Flight is online as ${readyClient.user.tag}`);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== "setup") return;
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "onboarding-setup") {
+    if (!interaction.inGuild()) {
+      return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
+    }
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({ content: "تحتاج صلاحية Manage Server لاستخدام الأمر.", ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const result = await runOnboardingSetup(interaction.guild);
+      const embed = new EmbedBuilder()
+        .setColor(0xA3A785)
+        .setTitle("تم إعداد Onboarding")
+        .setDescription("تم تجهيز خيارات الإشعارات الرسمية. الأعضاء يقدرون يختارون أكثر من خيار أثناء الانضمام أو من Channels & Roles.")
+        .addFields(
+          { name: "خيارات الإشعارات", value: String(result.rolesCreatedOrFound), inline: true },
+          { name: "الرومات الافتراضية", value: String(result.defaultChannels), inline: true }
+        )
+        .setFooter({ text: "Karen Flight • Onboarding" })
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error("Onboarding setup error:", error);
+      const message = error.message === "COMMUNITY_REQUIRED"
+        ? "لازم تفعّل Community في إعدادات السيرفر أولاً، وبعدها أعد تشغيل الأمر."
+        : error.message === "DEFAULT_CHANNELS_MISSING"
+          ? "ما لقيت الرومات العامة المطلوبة. شغّل /setup أولاً وتأكد أن الرومات السبعة العامة موجودة وتسمح للأعضاء بالكتابة."
+          : "تعذر إعداد Onboarding. تأكد أن رتبة البوت تملك Manage Roles وManage Server وأنها أعلى من رتب الإشعارات.";
+      await interaction.editReply({ content: message });
+    }
+    return;
+  }
+
+  if (interaction.commandName !== "setup") return;
 
   if (!interaction.inGuild()) {
     return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
