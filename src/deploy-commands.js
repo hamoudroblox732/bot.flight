@@ -18,8 +18,8 @@ const commands = [
     .setDMPermission(false)
     .toJSON(),
   new SlashCommandBuilder()
-    .setName("onboarding-setup")
-    .setDescription("إعداد خيارات إشعارات الأعضاء في Onboarding")
+    .setName("add-notification-roles")
+    .setDescription("إضافة رولات الإشعار للأعضاء")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
     .toJSON()
