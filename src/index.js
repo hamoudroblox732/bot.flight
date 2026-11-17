@@ -6,8 +6,7 @@ const {
   ChannelType,
   PermissionFlagsBits,
   EmbedBuilder,
-  Events,
-  REST
+  Events
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
@@ -247,87 +246,29 @@ const NOTIFICATION_ROLE_DEFINITIONS = [
   { name: "إشعارات الفعاليات", color: 0xA58AC7, title: "الفعاليات", description: "الفعاليات والمسابقات والأنشطة.", emoji: "🎉" }
 ];
 
-async function runOnboardingSetup(guild) {
+async function runAddNotificationRoles(guild) {
   await guild.roles.fetch();
-  await guild.channels.fetch();
 
-  if (!guild.features.includes("COMMUNITY")) {
-    throw new Error("COMMUNITY_REQUIRED");
-  }
-
-  const defaultChannelNames = [
-    "『الأسئلة・❔』",
-    "『الشات・💬』",
-    "『الصور・📸』",
-    "『الاقتراحات・💡』",
-    "『الدعم・🎫』",
-    "『حجز-الرحلات・🎟️』",
-    "『رحلات-مباشرة・🛫』"
-  ];
-
-  const defaultChannels = defaultChannelNames.map((name) =>
-    guild.channels.cache.find((channel) =>
-      channel.type === ChannelType.GuildText && channel.name === name
-    )
-  );
-
-  if (defaultChannels.some((channel) => !channel)) {
-    throw new Error("DEFAULT_CHANNELS_MISSING");
-  }
-
-  // Discord requires at least five default channels to allow members to send messages.
-  // These are public conversation channels, so explicitly grant @everyone access.
-  for (const channel of defaultChannels) {
-    await channel.permissionOverwrites.edit(guild.roles.everyone, {
-      ViewChannel: true,
-      SendMessages: true,
-      ReadMessageHistory: true
-    }, { reason: "Prepare public default channels for Discord Onboarding" });
-  }
-
-  const notificationRoles = [];
+  const results = [];
   for (const definition of NOTIFICATION_ROLE_DEFINITIONS) {
     let role = guild.roles.cache.find((item) => item.name === definition.name);
+    let created = false;
+
     if (!role) {
       role = await guild.roles.create({
         name: definition.name,
         color: definition.color,
         permissions: [],
         mentionable: true,
-        reason: "Karen Flight notification onboarding roles"
+        reason: "Karen Flight notification roles"
       });
+      created = true;
     }
-    notificationRoles.push({ definition, role });
+
+    results.push({ role, created });
   }
 
-  const prompts = [{
-    id: "0",
-    type: 0,
-    title: "وش الإشعارات اللي تبي توصلك؟",
-    single_select: false,
-    required: false,
-    in_onboarding: true,
-    options: notificationRoles.map(({ definition, role }) => ({
-      title: definition.title,
-      description: definition.description,
-      emoji_name: definition.emoji,
-      role_ids: [role.id],
-      channel_ids: []
-    }))
-  }];
-
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(`/guilds/${guild.id}/onboarding`, {
-    body: {
-      prompts,
-      default_channel_ids: defaultChannels.map((channel) => channel.id),
-      enabled: true,
-      mode: 0
-    },
-    reason: "Configure Karen Flight notification preferences"
-  });
-
-  return { rolesCreatedOrFound: notificationRoles.length, defaultChannels: defaultChannels.length };
+  return results;
 }
 
 client.once(Events.ClientReady, (readyClient) => {
@@ -337,7 +278,7 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === "onboarding-setup") {
+  if (interaction.commandName === "add-notification-roles") {
     if (!interaction.inGuild()) {
       return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
     }
@@ -347,26 +288,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.deferReply({ ephemeral: true });
     try {
-      const result = await runOnboardingSetup(interaction.guild);
+      const results = await runAddNotificationRoles(interaction.guild);
+      const created = results.filter((item) => item.created);
       const embed = new EmbedBuilder()
         .setColor(0xA3A785)
-        .setTitle("تم إعداد Onboarding")
-        .setDescription("تم تجهيز خيارات الإشعارات الرسمية. الأعضاء يقدرون يختارون أكثر من خيار أثناء الانضمام أو من Channels & Roles.")
+        .setTitle("تمت إضافة رولات الإشعار")
+        .setDescription(results.map(({ role }) => `• ${role}`).join("\n"))
         .addFields(
-          { name: "خيارات الإشعارات", value: String(result.rolesCreatedOrFound), inline: true },
-          { name: "الرومات الافتراضية", value: String(result.defaultChannels), inline: true }
+          { name: "الرولات الجديدة", value: String(created.length), inline: true },
+          { name: "إجمالي رولات الإشعار", value: String(results.length), inline: true }
         )
-        .setFooter({ text: "Karen Flight • Onboarding" })
+        .setFooter({ text: "Karen Flight • Notification Roles" })
         .setTimestamp();
+
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
-      console.error("Onboarding setup error:", error);
-      const message = error.message === "COMMUNITY_REQUIRED"
-        ? "لازم تفعّل Community في إعدادات السيرفر أولاً، وبعدها أعد تشغيل الأمر."
-        : error.message === "DEFAULT_CHANNELS_MISSING"
-          ? "ما لقيت الرومات العامة المطلوبة. شغّل /setup أولاً وتأكد أن الرومات السبعة العامة موجودة وتسمح للأعضاء بالكتابة."
-          : "تعذر إعداد Onboarding. تأكد أن رتبة البوت تملك Manage Roles وManage Server وأنها أعلى من رتب الإشعارات.";
-      await interaction.editReply({ content: message });
+      console.error("Notification roles error:", error);
+      await interaction.editReply({
+        content: "ما قدرت أضيف الرولات. تأكد أن البوت يملك Manage Roles وأن رتبته أعلى من الرولات الجديدة."
+      });
     }
     return;
   }
