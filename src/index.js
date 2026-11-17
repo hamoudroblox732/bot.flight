@@ -271,12 +271,74 @@ async function runAddNotificationRoles(guild) {
   return results;
 }
 
+async function runLockEveryoneChannelTools(guild) {
+  await guild.channels.fetch();
+
+  const everyone = guild.roles.everyone;
+  const targets = guild.channels.cache.filter((channel) =>
+    typeof channel.isThread === "function" ? !channel.isThread() : true
+  );
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const channel of targets.values()) {
+    try {
+      await channel.permissionOverwrites.edit(everyone, {
+        ManageChannels: false,
+        CreatePublicThreads: false,
+        CreatePrivateThreads: false
+      }, {
+        reason: "Disable channel management and thread creation for @everyone"
+      });
+      updated++;
+    } catch (error) {
+      failed++;
+      console.error(`Could not update channel ${channel.id} (${channel.name}):`, error);
+    }
+  }
+
+  return { updated, failed, total: targets.size };
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Karen Flight is online as ${readyClient.user.tag}`);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "lock-everyone-channel-tools") {
+    if (!interaction.inGuild()) {
+      return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
+    }
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({ content: "تحتاج صلاحية Manage Server لاستخدام الأمر.", ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const result = await runLockEveryoneChannelTools(interaction.guild);
+      const embed = new EmbedBuilder()
+        .setColor(result.failed ? 0xD6B56D : 0xA3A785)
+        .setTitle("تم تطبيق صلاحيات @everyone")
+        .setDescription("تم منع @everyone من إدارة الرومات وإنشاء Public Threads وPrivate Threads.")
+        .addFields(
+          { name: "الرومات والتصنيفات المعدّلة", value: String(result.updated), inline: true },
+          { name: "تعذّر تعديلها", value: String(result.failed), inline: true }
+        )
+        .setFooter({ text: "Karen Flight • Permissions" })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error("Lock channel tools error:", error);
+      await interaction.editReply({
+        content: "تعذر تطبيق الصلاحيات. تأكد أن البوت يملك Manage Roles وManage Channels."
+      });
+    }
+    return;
+  }
 
   if (interaction.commandName === "add-notification-roles") {
     if (!interaction.inGuild()) {
