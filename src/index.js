@@ -536,7 +536,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  // Application flow: panel -> position -> device -> application modal.
+  function createApplicationModal(position, device) {
+  const modal = new ModalBuilder()
+    .setCustomId(`kf-apply-form:${encodeURIComponent(position)}:${device}`)
+    .setTitle("استمارة التقديم");
+  const name = new TextInputBuilder().setCustomId("app-name").setLabel("اسمك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80);
+  const age = new TextInputBuilder().setCustomId("app-age").setLabel("عمرك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3);
+  const why = new TextInputBuilder().setCustomId("app-why").setLabel("ليش تبي تقدم؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
+  const activity = new TextInputBuilder().setCustomId("app-activity").setLabel("قد إيش تفاعلك؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
+  const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("الحلف").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(name),
+    new ActionRowBuilder().addComponents(age),
+    new ActionRowBuilder().addComponents(why),
+    new ActionRowBuilder().addComponents(activity),
+    new ActionRowBuilder().addComponents(oath)
+  );
+  return modal;
+}
+
+// Application flow: panel -> position -> device -> application modal.
   if (interaction.isButton() && interaction.customId === "kf-apply-start") {
     const menu = new StringSelectMenuBuilder()
       .setCustomId("kf-apply-position")
@@ -557,6 +576,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isStringSelectMenu() && interaction.customId === "kf-apply-position") {
     const position = interaction.values[0];
+    if (position === "Administration") {
+      return interaction.showModal(createApplicationModal(position, "none"));
+    }
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`kf-apply-device:${position}`)
       .setPlaceholder("اختر نوع جهازك")
@@ -567,36 +589,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { label: "PC", value: "pc" }
       );
     return interaction.update({
-      content: "اختر نوع جهازك لإكمال التقديم. نوع الجهاز لن يظهر للإدارة.",
+      content: "اختر نوع جهازك لإكمال التقديم.",
       components: [new ActionRowBuilder().addComponents(menu)]
     });
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith("kf-apply-device:")) {
     const position = interaction.customId.slice("kf-apply-device:".length);
-    const allowed = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
+    const allowed = ["Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
     if (!allowed.includes(position)) {
       return interaction.update({ content: "اختيار القسم غير صالح. ابدأ التقديم من جديد.", components: [] });
     }
-    const device = interaction.values[0];
-    const modal = new ModalBuilder()
-      .setCustomId(`kf-apply-form:${encodeURIComponent(position)}:${device}`)
-      .setTitle("استمارة التقديم");
-
-    const name = new TextInputBuilder().setCustomId("app-name").setLabel("اسمك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80);
-    const age = new TextInputBuilder().setCustomId("app-age").setLabel("عمرك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3);
-    const why = new TextInputBuilder().setCustomId("app-why").setLabel("ليش تبي تقدم؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
-    const activity = new TextInputBuilder().setCustomId("app-activity").setLabel("قد إيش تفاعلك؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
-    const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("احلف ما تغدر بالسيرفر").setPlaceholder("اكتب: أحلف ما أغدر بالسيرفر").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
-
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(name),
-      new ActionRowBuilder().addComponents(age),
-      new ActionRowBuilder().addComponents(why),
-      new ActionRowBuilder().addComponents(activity),
-      new ActionRowBuilder().addComponents(oath)
-    );
-    return interaction.showModal(modal);
+    return interaction.showModal(createApplicationModal(position, interaction.values[0]));
   }
 
   if (interaction.isModalSubmit() && interaction.customId.startsWith("kf-apply-form:")) {
@@ -604,7 +608,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const position = decodeURIComponent(encodedPosition || "");
     const validPositions = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
     const validDevices = ["iphone", "android", "playstation", "pc"];
-    if (!validPositions.includes(position) || !validDevices.includes(device)) {
+    const validDevice = position === "Administration" ? device === "none" : validDevices.includes(device);
+    if (!validPositions.includes(position) || !validDevice) {
       return interaction.reply({ content: "بيانات التقديم غير صالحة. حاول مرة ثانية من لوحة التقديم.", ephemeral: true });
     }
 
@@ -617,9 +622,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     const oathAnswer = interaction.fields.getTextInputValue("app-oath").trim();
-    if (!/أحلف|احلف|أتعهد|اتعهد/.test(oathAnswer)) {
-      return interaction.reply({ content: "لازم تكتب إقرارك بأنك ما راح تغدر بالسيرفر.", ephemeral: true });
-    }
 
     const application = new EmbedBuilder()
       .setColor(0xA3A785)
