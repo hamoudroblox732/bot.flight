@@ -435,7 +435,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!hasTicketStaff(interaction.member)) return interaction.reply({ content: "هذا الإجراء للمشرفين برول Administration فقط.", ephemeral: true });
 
       if (interaction.customId === "kf-claim" || interaction.customId === "kf-unclaim") {
-        const claimed = interaction.channel.topic?.match(/ticketClaimed=(\\d+)/)?.[1];
+        const claimed = interaction.channel.topic?.match(/ticketClaimed=(\d+)/)?.[1];
         if (interaction.customId === "kf-claim") {
           if (claimed) return interaction.reply({ content: `التكت مستلم بالفعل من <@${claimed}>.`, ephemeral: true });
           await interaction.channel.setTopic(`${interaction.channel.topic};ticketClaimed=${interaction.user.id}`);
@@ -443,7 +443,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         if (!claimed) return interaction.reply({ content: "التكت غير مستلم.", ephemeral: true });
         if (claimed !== interaction.user.id && !interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) return interaction.reply({ content: "فقط المستلم أو الإدارة العليا يمكنها إلغاء الاستلام.", ephemeral: true });
-        await interaction.channel.setTopic(interaction.channel.topic.replace(/;ticketClaimed=\\d+/, ""));
+        await interaction.channel.setTopic(interaction.channel.topic.replace(/;ticketClaimed=\d+/, ""));
         return interaction.reply({ content: "تم إلغاء استلام التكت." });
       }
 
@@ -463,7 +463,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!isTicketChannel(interaction.channel) || !hasTicketStaff(interaction.member)) return interaction.reply({ content: "هذا الإجراء للمشرفين فقط.", ephemeral: true });
     const reason = interaction.fields.getTextInputValue("reason");
     const ownerId = getTicketOwner(interaction.channel);
-    const openedAt = Number(interaction.channel.topic.match(/ticketOpened=(\\d+)/)?.[1] || 0);
+    const openedAt = Number(interaction.channel.topic.match(/ticketOpened=(\d+)/)?.[1] || 0);
     const closedAt = Date.now();
     const summary = new EmbedBuilder().setColor(0xA3A785).setTitle("تم إغلاق التكت").addFields(
       { name: "صاحب التكت", value: ownerId ? `<@${ownerId}>` : "غير معروف", inline: true },
