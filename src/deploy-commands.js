@@ -30,6 +30,12 @@ const commands = [
     .setDMPermission(false)
     .toJSON(),
   new SlashCommandBuilder()
+    .setName("boarding-staff-info")
+    .setDescription("إرسال شرح مهام موظفي صعود الطائرة")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDMPermission(false)
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName("application-panel")
     .setDescription("إرسال لوحة التقديمات")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
