@@ -544,7 +544,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const age = new TextInputBuilder().setCustomId("app-age").setLabel("عمرك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3);
   const why = new TextInputBuilder().setCustomId("app-why").setLabel("ليش تبي تقدم؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
   const activity = new TextInputBuilder().setCustomId("app-activity").setLabel("قد إيش تفاعلك؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
-  const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("اكتب القسم").setPlaceholder("والله ماغدر بالسيرفر").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
+  const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("القسم").setPlaceholder("والله ماغدر بالسيرفر").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
   modal.addComponents(
     new ActionRowBuilder().addComponents(name),
     new ActionRowBuilder().addComponents(age),
@@ -621,6 +621,46 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "ما لقيت روم 『التقديمات・🗒️』. تأكد من اسم الروم وصلاحية البوت.", ephemeral: true });
     }
 
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    const isOwner = interaction.user.id === interaction.guild.ownerId ||
+      member.roles.cache.some((role) => role.name.toLowerCase() === "owner");
+
+    // Five-day cooldown, checked against application posts in the applications channel.
+    if (!isOwner) {
+      const cooldownMs = 5 * 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - cooldownMs;
+      let before;
+      let recentApplication = null;
+      while (true) {
+        const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
+        if (!batch.size) break;
+        for (const message of batch.values()) {
+          if (message.createdTimestamp < cutoff) continue;
+          const embed = message.embeds[0];
+          const footer = embed?.footer?.text || "";
+          const description = embed?.description || "";
+          if (footer.includes(`Applicant ID: ${interaction.user.id}`) ||
+              description.includes(`<@${interaction.user.id}>`) ||
+              description.includes(`<@!${interaction.user.id}>`)) {
+            if (!recentApplication || message.createdTimestamp > recentApplication.createdTimestamp) {
+              recentApplication = message;
+            }
+          }
+        }
+        const oldest = batch.last();
+        if (!oldest || oldest.createdTimestamp < cutoff || batch.size < 100) break;
+        before = oldest.id;
+      }
+
+      if (recentApplication) {
+        const availableAt = Math.floor((recentApplication.createdTimestamp + cooldownMs) / 1000);
+        return interaction.reply({
+          content: `قدمت قبل أقل من 5 أيام. تقدر تقدم مرة ثانية <t:${availableAt}:R>.`,
+          ephemeral: true
+        });
+      }
+    }
+
     const oathAnswer = interaction.fields.getTextInputValue("app-oath").trim();
 
     const application = new EmbedBuilder()
@@ -630,17 +670,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .addFields(
         { name: "الاسم", value: interaction.fields.getTextInputValue("app-name"), inline: true },
         { name: "العمر", value: interaction.fields.getTextInputValue("app-age"), inline: true },
-        ...(position === "Administration" ? [] : [{ name: "نوع الجهاز", value: ({ iphone: "iPhone", android: "Android", playstation: "PlayStation", pc: "PC" })[device], inline: true }]),
+        { name: "نوع الجهاز", value: position === "Administration" ? "غير مطلوب لهذا القسم" : ({ iphone: "iPhone", android: "Android", playstation: "PlayStation", pc: "PC" })[device], inline: true },
         { name: "ليش تبي تقدم؟", value: interaction.fields.getTextInputValue("app-why") },
         { name: "قد إيش تفاعلك؟", value: interaction.fields.getTextInputValue("app-activity") },
         { name: "الإقرار", value: oathAnswer }
       )
-      .setFooter({ text: "Karen Flight • Applications" })
+      .setFooter({ text: `Karen Flight • Applications • Applicant ID: ${interaction.user.id}` })
       .setTimestamp();
 
     try {
       await channel.send({ embeds: [application], allowedMentions: { users: [interaction.user.id] } });
-      return interaction.reply({ content: "تم إرسال تقديمك بنجاح! الإدارة بتراجعه في روم التقديمات.", ephemeral: true });
+      return interaction.reply({ content: "تم إرسال تقديمك بنجاح! تقدر تقدم مرة ثانية بعد 5 أيام.", ephemeral: true });
     } catch (error) {
       console.error("Application submission error:", error);
       return interaction.reply({ content: "ما قدرت أرسل التقديم. تأكد أن البوت يملك صلاحية View Channel وSend Messages وEmbed Links في روم التقديمات.", ephemeral: true });
