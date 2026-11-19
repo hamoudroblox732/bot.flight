@@ -28,6 +28,12 @@ const commands = [
     .setDescription("إضافة رولات الإشعار للأعضاء")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName("ticket-panel")
+    .setDescription("إرسال لوحة فتح التكتات")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDMPermission(false)
     .toJSON()
 ];
 
@@ -40,7 +46,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log("تم تسجيل أمر /setup بنجاح.");
+    console.log("تم تسجيل جميع أوامر Karen Flight بنجاح:", commands.map((command) => "/" + command.name).join(", "));
   } catch (error) {
     console.error("Command deployment failed:", error);
     process.exit(1);
