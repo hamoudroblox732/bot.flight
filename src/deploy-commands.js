@@ -30,6 +30,12 @@ const commands = [
     .setDMPermission(false)
     .toJSON(),
   new SlashCommandBuilder()
+    .setName("application-panel")
+    .setDescription("إرسال لوحة التقديمات")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDMPermission(false)
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName("ticket-panel")
     .setDescription("إرسال لوحة فتح التكتات")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
