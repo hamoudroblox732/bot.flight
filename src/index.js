@@ -324,7 +324,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.channel.send({ embeds: [embed], components: [row] });
     return interaction.reply({ content: "تم إرسال لوحة التكتات في هذا الروم.", ephemeral: true });
   }
-\n  if (interaction.commandName === "lock-everyone-channel-tools") {
+
+  if (interaction.commandName === "lock-everyone-channel-tools") {
     if (!interaction.inGuild()) {
       return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
     }
