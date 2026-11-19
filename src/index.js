@@ -624,7 +624,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const application = new EmbedBuilder()
       .setColor(0xA3A785)
       .setTitle("طلب تقديم جديد")
-      .setDescription(`**المتقدم:** ${interaction.user}\\n**القسم:** ${position}`)
+      .setDescription(`**المتقدم:** ${interaction.user}\n**القسم:** ${position}`)
       .addFields(
         { name: "الاسم", value: interaction.fields.getTextInputValue("app-name"), inline: true },
         { name: "العمر", value: interaction.fields.getTextInputValue("app-age"), inline: true },
