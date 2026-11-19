@@ -565,7 +565,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { label: "Pilot", value: "Pilot" },
         { label: "First Officer", value: "First Officer" },
         { label: "Cabin Crew", value: "Cabin Crew" },
-        { label: "Ground Staff", value: "Ground Staff" }
+        { label: "Ground Staff", value: "Ground Staff" },
+        { label: "Boarding Staff", value: "Boarding Staff" }
       );
     return interaction.reply({
       content: "اختر نوع التقديم:",
@@ -597,7 +598,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith("kf-apply-device:")) {
     const position = interaction.customId.slice("kf-apply-device:".length);
-    const allowed = ["Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
+    const allowed = ["Pilot", "First Officer", "Cabin Crew", "Ground Staff", "Boarding Staff"];
     if (!allowed.includes(position)) {
       return interaction.update({ content: "اختيار القسم غير صالح. ابدأ التقديم من جديد.", components: [] });
     }
@@ -607,7 +608,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isModalSubmit() && interaction.customId.startsWith("kf-apply-form:")) {
     const [, encodedPosition, device] = interaction.customId.split(":");
     const position = decodeURIComponent(encodedPosition || "");
-    const validPositions = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
+    const validPositions = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff", "Boarding Staff"];
     const validDevices = ["iphone", "android", "playstation", "pc"];
     const validDevice = position === "Administration" ? device === "none" : validDevices.includes(device);
     if (!validPositions.includes(position) || !validDevice) {
