@@ -417,6 +417,36 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply({ content: "تم إرسال لوحة التكتات في هذا الروم.", ephemeral: true });
   }
 
+  if (interaction.commandName === "boarding-staff-info") {
+    if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
+    }
+    const embed = new EmbedBuilder()
+      .setColor(0xA3A785)
+      .setTitle("دليل موظفي صعود الطائرة • Karen Flight")
+      .setDescription("موظفو صعود الطائرة مسؤولون عن تنظيم مرحلة صعود المسافرين والتأكد من انتقالهم للطائرة بشكل مرتب.")
+      .addFields(
+        { name: "المهام الأساسية", value: [
+          "• استقبال المسافرين وتوجيههم إلى بوابة الصعود.",
+          "• إعلان بدء الصعود حسب تعليمات مسؤول الرحلة.",
+          "• تنظيم دخول المسافرين للطائرة ومنع التزاحم.",
+          "• متابعة قائمة المسافرين أو الحجوزات إذا كانت مستخدمة في الرحلة.",
+          "• إبلاغ الإدارة أو قائد الرحلة عن أي مشكلة أو تأخير."
+        ].join("\n") },
+        { name: "أثناء الرحلة", value: "التزم بتعليمات قائد الرحلة، وابقَ متاحاً للتنسيق إلى أن ينتهي الصعود ويتم تسليم المهمة." },
+        { name: "قواعد العمل", value: [
+          "• تعامل مع المسافرين باحترام ووضوح.",
+          "• لا تعلن بدء الصعود أو إغلاقه من نفسك؛ اتبع توقيت المسؤول.",
+          "• لا تغيّر بيانات الحجز أو قائمة المسافرين دون إذن.",
+          "• استخدم روم موظفي البوردنق للتنسيق وتحديث حالة الصعود."
+        ].join("\n") }
+      )
+      .setFooter({ text: "Karen Flight • Boarding Staff" })
+      .setTimestamp();
+    await interaction.channel.send({ embeds: [embed] });
+    return interaction.reply({ content: "تم إرسال شرح موظفي صعود الطائرة في هذا الروم.", ephemeral: true });
+  }
+
   if (interaction.commandName === "application-panel") {
     if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
