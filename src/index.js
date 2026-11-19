@@ -307,6 +307,97 @@ async function runLockEveryoneChannelTools(guild) {
   return { updated, failed, total: targets.size };
 }
 
+function isTicketChannel(channel) {
+  return Boolean(channel && channel.type === ChannelType.GuildText && /ticketOwner=\d+/.test(channel.topic || ""));
+}
+
+function getTicketOwner(channel) {
+  return channel?.topic?.match(/ticketOwner=(\d+)/)?.[1] || null;
+}
+
+function hasTicketStaff(member) {
+  return Boolean(member?.roles?.cache?.some((role) => ["Administration", "Owner"].includes(role.name)));
+}
+
+async function openTicket(interaction) {
+  if (!interaction.inGuild()) {
+    return interaction.reply({ content: "فتح التكت متاح داخل السيرفر فقط.", ephemeral: true });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const guild = interaction.guild;
+    const ownerId = interaction.user.id;
+    await guild.channels.fetch();
+    await guild.roles.fetch();
+
+    const existing = guild.channels.cache.find((channel) =>
+      channel.type === ChannelType.GuildText &&
+      channel.topic?.includes(`ticketOwner=${ownerId}`) &&
+      !channel.topic?.includes("ticketClosed=")
+    );
+
+    if (existing) {
+      return interaction.editReply({ content: `عندك تكت مفتوح بالفعل: ${existing}` });
+    }
+
+    const staffRole = guild.roles.cache.find((role) => role.name === "Administration");
+    if (!staffRole) {
+      return interaction.editReply({ content: "ما لقيت رتبة Administration. شغّل أمر /setup أولاً." });
+    }
+
+    let category = guild.channels.cache.find((channel) =>
+      channel.type === ChannelType.GuildCategory && channel.name === "『 التكتات ・🎫』"
+    );
+
+    if (!category) {
+      category = await guild.channels.create({
+        name: "『 التكتات ・🎫』",
+        type: ChannelType.GuildCategory,
+        reason: "Karen Flight ticket system"
+      });
+    }
+
+    const safeName = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 18) || "member";
+    const openedAt = Date.now();
+
+    const ticket = await guild.channels.create({
+      name: `ticket-${safeName}`.slice(0, 90),
+      type: ChannelType.GuildText,
+      parent: category.id,
+      topic: `ticketOwner=${ownerId};ticketOpened=${openedAt}`,
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: ownerId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
+        { id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages] },
+        { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageMessages] }
+      ],
+      reason: `Support ticket opened by ${interaction.user.tag}`
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0xA3A785)
+      .setTitle("تكت الدعم الفني")
+      .setDescription(`أهلًا ${interaction.user}، اكتب تفاصيل طلبك هنا وبيساعدك فريق الإدارة.`)
+      .addFields({ name: "الحالة", value: "بانتظار استلام الإدارة" })
+      .setFooter({ text: "Karen Flight • Support" })
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("kf-claim").setLabel("استلام التكت").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("kf-unclaim").setLabel("إلغاء الاستلام").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("kf-close").setLabel("إغلاق التكت").setStyle(ButtonStyle.Danger)
+    );
+
+    await ticket.send({ content: `<@&${staffRole.id}> • ${interaction.user}`, embeds: [embed], components: [row], allowedMentions: { users: [ownerId], roles: [staffRole.id] } });
+    return interaction.editReply({ content: `تم فتح تكتك بنجاح: ${ticket}` });
+  } catch (error) {
+    console.error("Open ticket error:", error);
+    return interaction.editReply({ content: "تعذر فتح التكت. تأكد أن البوت يملك Manage Channels وView Channels وSend Messages، وأن صلاحياته تسمح له بإنشاء رومات داخل تصنيف التكتات." }).catch(() => {});
+  }
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Karen Flight is online as ${readyClient.user.tag}`);
 });
