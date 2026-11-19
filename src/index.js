@@ -6,7 +6,13 @@ const {
   ChannelType,
   PermissionFlagsBits,
   EmbedBuilder,
-  Events
+  Events,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
@@ -308,7 +314,17 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === "lock-everyone-channel-tools") {
+
+  if (interaction.commandName === "ticket-panel") {
+    if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
+    }
+    const embed = new EmbedBuilder().setColor(0xA3A785).setTitle("الدعم الفني • Karen Flight").setDescription("اضغط **فتح تكت** للتواصل مع الإدارة بشكل خاص.");
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("kf-open").setLabel("فتح تكت").setStyle(ButtonStyle.Primary).setEmoji("🎫"));
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+    return interaction.reply({ content: "تم إرسال لوحة التكتات في هذا الروم.", ephemeral: true });
+  }
+\n  if (interaction.commandName === "lock-everyone-channel-tools") {
     if (!interaction.inGuild()) {
       return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
     }
@@ -410,3 +426,57 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    try {
+      if (interaction.customId === "kf-open") return await openTicket(interaction);
+      if (!isTicketChannel(interaction.channel)) return interaction.reply({ content: "هذا الزر ليس في تكت.", ephemeral: true });
+      if (!hasTicketStaff(interaction.member)) return interaction.reply({ content: "هذا الإجراء للمشرفين برول Administration فقط.", ephemeral: true });
+
+      if (interaction.customId === "kf-claim" || interaction.customId === "kf-unclaim") {
+        const claimed = interaction.channel.topic?.match(/ticketClaimed=(\\d+)/)?.[1];
+        if (interaction.customId === "kf-claim") {
+          if (claimed) return interaction.reply({ content: `التكت مستلم بالفعل من <@${claimed}>.`, ephemeral: true });
+          await interaction.channel.setTopic(`${interaction.channel.topic};ticketClaimed=${interaction.user.id}`);
+          return interaction.reply({ content: `تم استلام التكت بواسطة ${interaction.user}.` });
+        }
+        if (!claimed) return interaction.reply({ content: "التكت غير مستلم.", ephemeral: true });
+        if (claimed !== interaction.user.id && !interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) return interaction.reply({ content: "فقط المستلم أو الإدارة العليا يمكنها إلغاء الاستلام.", ephemeral: true });
+        await interaction.channel.setTopic(interaction.channel.topic.replace(/;ticketClaimed=\\d+/, ""));
+        return interaction.reply({ content: "تم إلغاء استلام التكت." });
+      }
+
+      if (interaction.customId === "kf-close") {
+        const modal = new ModalBuilder().setCustomId("kf-close-reason").setTitle("إغلاق التكت");
+        const input = new TextInputBuilder().setCustomId("reason").setLabel("سبب إغلاق التكت").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        return interaction.showModal(modal);
+      }
+    } catch (error) {
+      console.error("Ticket button error:", error);
+      if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "صار خطأ أثناء تنفيذ العملية.", ephemeral: true }).catch(() => {});
+    }
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "kf-close-reason") {
+    if (!isTicketChannel(interaction.channel) || !hasTicketStaff(interaction.member)) return interaction.reply({ content: "هذا الإجراء للمشرفين فقط.", ephemeral: true });
+    const reason = interaction.fields.getTextInputValue("reason");
+    const ownerId = getTicketOwner(interaction.channel);
+    const openedAt = Number(interaction.channel.topic.match(/ticketOpened=(\\d+)/)?.[1] || 0);
+    const closedAt = Date.now();
+    const summary = new EmbedBuilder().setColor(0xA3A785).setTitle("تم إغلاق التكت").addFields(
+      { name: "صاحب التكت", value: ownerId ? `<@${ownerId}>` : "غير معروف", inline: true },
+      { name: "من فتح التكت", value: ownerId ? `<@${ownerId}>` : "غير معروف", inline: true },
+      { name: "من أغلق التكت", value: `${interaction.user}`, inline: true },
+      { name: "وقت فتح التكت", value: openedAt ? `<t:${Math.floor(openedAt/1000)}:F>` : "غير معروف", inline: true },
+      { name: "وقت الإغلاق", value: `<t:${Math.floor(closedAt/1000)}:F>`, inline: true },
+      { name: "سبب الإغلاق", value: reason }
+    ).setFooter({ text: "Karen Flight • Ticket Closure" });
+    try { const user = await client.users.fetch(ownerId); await user.send({ embeds: [summary] }); } catch {}
+    await interaction.reply({ embeds: [summary] });
+    await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false });
+    await interaction.channel.setName(`closed-${interaction.channel.name}`);
+    await interaction.channel.setTopic(`${interaction.channel.topic};ticketClosed=${closedAt};ticketCloser=${interaction.user.id}`);
+  }
+});
