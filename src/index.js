@@ -561,7 +561,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .setCustomId("kf-apply-position")
       .setPlaceholder("اختر القسم اللي تبي تقدم عليه")
       .addOptions(
-        { label: "Administration", value: "Administration" },
+        { label: "Administration", value: "administration" },
         { label: "Pilot", value: "Pilot" },
         { label: "First Officer", value: "First Officer" },
         { label: "Cabin Crew", value: "Cabin Crew" },
@@ -575,9 +575,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "kf-apply-position") {
-    const position = interaction.values[0];
+    const selectedPosition = interaction.values[0];
+    const position = selectedPosition.toLowerCase() === "administration" ? "Administration" : selectedPosition;
     if (position === "Administration") {
-      return interaction.showModal(createApplicationModal(position, "none"));
+      return interaction.showModal(createApplicationModal("Administration", "none"));
     }
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`kf-apply-device:${position}`)
