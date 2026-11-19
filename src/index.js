@@ -417,6 +417,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply({ content: "تم إرسال لوحة التكتات في هذا الروم.", ephemeral: true });
   }
 
+  if (interaction.commandName === "application-panel") {
+    if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
+    }
+    const embed = new EmbedBuilder()
+      .setColor(0xA3A785)
+      .setTitle("التقديمات • Karen Flight")
+      .setDescription("إذا تبي تنضم إلى طاقم Karen Flight، اضغط الزر بالأسفل واختر القسم ثم عبّئ الاستمارة.");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("kf-apply-start").setLabel("بدء التقديم").setStyle(ButtonStyle.Success).setEmoji("📝")
+    );
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+    return interaction.reply({ content: "تم إرسال لوحة التقديمات في هذا الروم.", ephemeral: true });
+  }
+
   if (interaction.commandName === "lock-everyone-channel-tools") {
     if (!interaction.inGuild()) {
       return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
@@ -593,6 +608,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "بيانات التقديم غير صالحة. حاول مرة ثانية من لوحة التقديم.", ephemeral: true });
     }
 
+    await interaction.guild.channels.fetch();
     const channel = interaction.guild?.channels.cache.find((item) =>
       item.type === ChannelType.GuildText && item.name === "『التقديمات・🗒️』"
     );
