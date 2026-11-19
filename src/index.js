@@ -12,7 +12,8 @@ const {
   ButtonStyle,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  StringSelectMenuBuilder
 } = require("discord.js");
 
 const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
@@ -518,6 +519,115 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  // Application flow: panel -> position -> device -> application modal.
+  if (interaction.isButton() && interaction.customId === "kf-apply-start") {
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId("kf-apply-position")
+      .setPlaceholder("اختر القسم اللي تبي تقدم عليه")
+      .addOptions(
+        { label: "Administration", value: "Administration" },
+        { label: "Pilot", value: "Pilot" },
+        { label: "First Officer", value: "First Officer" },
+        { label: "Cabin Crew", value: "Cabin Crew" },
+        { label: "Ground Staff", value: "Ground Staff" }
+      );
+    return interaction.reply({
+      content: "اختر نوع التقديم:",
+      components: [new ActionRowBuilder().addComponents(menu)],
+      ephemeral: true
+    });
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "kf-apply-position") {
+    const position = interaction.values[0];
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(`kf-apply-device:${position}`)
+      .setPlaceholder("اختر نوع جهازك")
+      .addOptions(
+        { label: "iPhone", value: "iphone" },
+        { label: "Android", value: "android" },
+        { label: "PlayStation", value: "playstation" },
+        { label: "PC", value: "pc" }
+      );
+    return interaction.update({
+      content: "اختر نوع جهازك لإكمال التقديم. نوع الجهاز لن يظهر للإدارة.",
+      components: [new ActionRowBuilder().addComponents(menu)]
+    });
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith("kf-apply-device:")) {
+    const position = interaction.customId.slice("kf-apply-device:".length);
+    const allowed = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
+    if (!allowed.includes(position)) {
+      return interaction.update({ content: "اختيار القسم غير صالح. ابدأ التقديم من جديد.", components: [] });
+    }
+    const device = interaction.values[0];
+    const modal = new ModalBuilder()
+      .setCustomId(`kf-apply-form:${encodeURIComponent(position)}:${device}`)
+      .setTitle("استمارة التقديم");
+
+    const name = new TextInputBuilder().setCustomId("app-name").setLabel("اسمك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80);
+    const age = new TextInputBuilder().setCustomId("app-age").setLabel("عمرك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3);
+    const why = new TextInputBuilder().setCustomId("app-why").setLabel("ليش تبي تقدم؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
+    const activity = new TextInputBuilder().setCustomId("app-activity").setLabel("قد إيش تفاعلك؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
+    const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("احلف ما تغدر بالسيرفر").setPlaceholder("اكتب: أحلف ما أغدر بالسيرفر").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(name),
+      new ActionRowBuilder().addComponents(age),
+      new ActionRowBuilder().addComponents(why),
+      new ActionRowBuilder().addComponents(activity),
+      new ActionRowBuilder().addComponents(oath)
+    );
+    return interaction.showModal(modal);
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("kf-apply-form:")) {
+    const [, encodedPosition, device] = interaction.customId.split(":");
+    const position = decodeURIComponent(encodedPosition || "");
+    const validPositions = ["Administration", "Pilot", "First Officer", "Cabin Crew", "Ground Staff"];
+    const validDevices = ["iphone", "android", "playstation", "pc"];
+    if (!validPositions.includes(position) || !validDevices.includes(device)) {
+      return interaction.reply({ content: "بيانات التقديم غير صالحة. حاول مرة ثانية من لوحة التقديم.", ephemeral: true });
+    }
+
+    const channel = interaction.guild?.channels.cache.find((item) =>
+      item.type === ChannelType.GuildText && item.name === "『التقديمات・🗒️』"
+    );
+    if (!channel) {
+      return interaction.reply({ content: "ما لقيت روم 『التقديمات・🗒️』. تأكد من اسم الروم وصلاحية البوت.", ephemeral: true });
+    }
+
+    const oathAnswer = interaction.fields.getTextInputValue("app-oath").trim();
+    if (!/أحلف|احلف|أتعهد|اتعهد/.test(oathAnswer)) {
+      return interaction.reply({ content: "لازم تكتب إقرارك بأنك ما راح تغدر بالسيرفر.", ephemeral: true });
+    }
+
+    const application = new EmbedBuilder()
+      .setColor(0xA3A785)
+      .setTitle("طلب تقديم جديد")
+      .setDescription(`**المتقدم:** ${interaction.user}\\n**القسم:** ${position}`)
+      .addFields(
+        { name: "الاسم", value: interaction.fields.getTextInputValue("app-name"), inline: true },
+        { name: "العمر", value: interaction.fields.getTextInputValue("app-age"), inline: true },
+        { name: "ليش تبي تقدم؟", value: interaction.fields.getTextInputValue("app-why") },
+        { name: "قد إيش تفاعلك؟", value: interaction.fields.getTextInputValue("app-activity") },
+        { name: "الإقرار", value: oathAnswer }
+      )
+      .setFooter({ text: "Karen Flight • Applications" })
+      .setTimestamp();
+
+    try {
+      await channel.send({ embeds: [application], allowedMentions: { users: [interaction.user.id] } });
+      return interaction.reply({ content: "تم إرسال تقديمك بنجاح! الإدارة بتراجعه في روم التقديمات.", ephemeral: true });
+    } catch (error) {
+      console.error("Application submission error:", error);
+      return interaction.reply({ content: "ما قدرت أرسل التقديم. تأكد أن البوت يملك صلاحية View Channel وSend Messages وEmbed Links في روم التقديمات.", ephemeral: true });
+    }
+  }
+});
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
