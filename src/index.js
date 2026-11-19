@@ -544,7 +544,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const age = new TextInputBuilder().setCustomId("app-age").setLabel("عمرك").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3);
   const why = new TextInputBuilder().setCustomId("app-why").setLabel("ليش تبي تقدم؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
   const activity = new TextInputBuilder().setCustomId("app-activity").setLabel("قد إيش تفاعلك؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
-  const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("الحلف").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
+  const oath = new TextInputBuilder().setCustomId("app-oath").setLabel("اكتب القسم").setPlaceholder("والله ماغدر بالسيرفر").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120);
   modal.addComponents(
     new ActionRowBuilder().addComponents(name),
     new ActionRowBuilder().addComponents(age),
@@ -630,6 +630,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .addFields(
         { name: "الاسم", value: interaction.fields.getTextInputValue("app-name"), inline: true },
         { name: "العمر", value: interaction.fields.getTextInputValue("app-age"), inline: true },
+        ...(position === "Administration" ? [] : [{ name: "نوع الجهاز", value: ({ iphone: "iPhone", android: "Android", playstation: "PlayStation", pc: "PC" })[device], inline: true }]),
         { name: "ليش تبي تقدم؟", value: interaction.fields.getTextInputValue("app-why") },
         { name: "قد إيش تفاعلك؟", value: interaction.fields.getTextInputValue("app-activity") },
         { name: "الإقرار", value: oathAnswer }
