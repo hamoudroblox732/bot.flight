@@ -648,6 +648,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
     try {
+      // Application buttons are handled by the application interaction listener above.
+      if (interaction.customId === "kf-apply-start") return;
       if (interaction.customId === "kf-open") return await openTicket(interaction);
       if (!isTicketChannel(interaction.channel)) return interaction.reply({ content: "هذا الزر ليس في تكت.", ephemeral: true });
       if (!hasTicketStaff(interaction.member)) return interaction.reply({ content: "هذا الإجراء للمشرفين برول Administration فقط.", ephemeral: true });
