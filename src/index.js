@@ -565,10 +565,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
       { name: "وقت الإغلاق", value: `<t:${Math.floor(closedAt/1000)}:F>`, inline: true },
       { name: "سبب الإغلاق", value: reason }
     ).setFooter({ text: "Karen Flight • Ticket Closure" });
-    try { const user = await client.users.fetch(ownerId); await user.send({ embeds: [summary] }); } catch {}
-    await interaction.reply({ embeds: [summary] });
-    await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false });
-    await interaction.channel.setName(`closed-${interaction.channel.name}`);
-    await interaction.channel.setTopic(`${interaction.channel.topic};ticketClosed=${closedAt};ticketCloser=${interaction.user.id}`);
+    if (!ownerId) {
+      return interaction.reply({ content: "ما قدرت أحدد صاحب التكت، لذلك ما حذفت الروم حفاظًا على بياناته.", ephemeral: true });
+    }
+
+    let dmSent = false;
+    try {
+      const user = await client.users.fetch(ownerId);
+      await user.send({ embeds: [summary] });
+      dmSent = true;
+    } catch (error) {
+      console.error("Ticket closure DM failed:", error);
+    }
+
+    await interaction.reply({
+      content: dmSent
+        ? "تم إرسال ملخص إغلاق التكت لصاحبه بالخاص. سيتم حذف روم التكت الآن."
+        : "تعذر إرسال الملخص بالخاص (قد تكون الرسائل الخاصة مقفلة). سيتم حذف روم التكت الآن.",
+      ephemeral: true
+    });
+
+    await interaction.channel.delete(`Ticket closed by ${interaction.user.tag}. Reason: ${reason}`);
   }
 });
