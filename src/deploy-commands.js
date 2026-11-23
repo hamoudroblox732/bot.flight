@@ -11,42 +11,9 @@ if (missing.length) {
 }
 
 const commands = [
-  new SlashCommandBuilder()
-    .setName("setup")
-    .setDescription("إنشاء وتجهيز سيرفر Karen Flight بالكامل")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName("lock-everyone-channel-tools")
-    .setDescription("قفل إدارة الرومات وإنشاء الثريدات عن everyone")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName("add-notification-roles")
-    .setDescription("إضافة رولات الإشعار للأعضاء")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName("boarding-staff-info")
-    .setDescription("إرسال شرح مهام موظفي صعود الطائرة")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName("application-panel")
-    .setDescription("إرسال لوحة التقديمات")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName("ticket-panel")
-    .setDescription("إرسال لوحة فتح التكتات")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false)
-    .toJSON()
+  new SlashCommandBuilder().setName("admin-channel-permissions").setDescription("تعديل صلاحيات الإدارة والرياكشنات").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON(),
+  new SlashCommandBuilder().setName("application-panel").setDescription("إرسال لوحة التقديمات").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON(),
+  new SlashCommandBuilder().setName("ticket-panel").setDescription("إرسال لوحة فتح التكتات").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON()
 ];
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
