@@ -16,7 +16,7 @@ const {
   StringSelectMenuBuilder
 } = require("discord.js");
 
-const required = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
+const required = ["DISCORD_TOKEN", "CLIENT_ID"];
 const missing = required.filter((key) => !process.env[key]);
 
 if (missing.length) {
