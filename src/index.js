@@ -456,6 +456,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.editReply({ content: `تم تحديث صلاحيات الإدارة والرياكشنات في ${changed} روم. تعذر تعديل ${failed}.` });
     } catch (e) { console.error(e); return interaction.editReply({ content: "صار خطأ أثناء تعديل الصلاحيات. تأكد أن البوت يملك Manage Channels." }); }
   }
+});
 
 client.login(process.env.DISCORD_TOKEN);
 
