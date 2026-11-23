@@ -417,36 +417,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply({ content: "تم إرسال لوحة التكتات في هذا الروم.", ephemeral: true });
   }
 
-  if (interaction.commandName === "boarding-staff-info") {
-    if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
-    }
-    const embed = new EmbedBuilder()
-      .setColor(0xA3A785)
-      .setTitle("دليل موظفي صعود الطائرة • Karen Flight")
-      .setDescription("موظفو صعود الطائرة مسؤولون عن تنظيم مرحلة صعود المسافرين والتأكد من انتقالهم للطائرة بشكل مرتب.")
-      .addFields(
-        { name: "المهام الأساسية", value: [
-          "• استقبال المسافرين وتوجيههم إلى بوابة الصعود.",
-          "• إعلان بدء الصعود حسب تعليمات مسؤول الرحلة.",
-          "• تنظيم دخول المسافرين للطائرة ومنع التزاحم.",
-          "• متابعة قائمة المسافرين أو الحجوزات إذا كانت مستخدمة في الرحلة.",
-          "• إبلاغ الإدارة أو قائد الرحلة عن أي مشكلة أو تأخير."
-        ].join("\n") },
-        { name: "أثناء الرحلة", value: "التزم بتعليمات قائد الرحلة، وابقَ متاحاً للتنسيق إلى أن ينتهي الصعود ويتم تسليم المهمة." },
-        { name: "قواعد العمل", value: [
-          "• تعامل مع المسافرين باحترام ووضوح.",
-          "• لا تعلن بدء الصعود أو إغلاقه من نفسك؛ اتبع توقيت المسؤول.",
-          "• لا تغيّر بيانات الحجز أو قائمة المسافرين دون إذن.",
-          "• استخدم روم موظفي البوردنق للتنسيق وتحديث حالة الصعود."
-        ].join("\n") }
-      )
-      .setFooter({ text: "Karen Flight • Boarding Staff" })
-      .setTimestamp();
-    await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: "تم إرسال شرح موظفي صعود الطائرة في هذا الروم.", ephemeral: true });
-  }
-
   if (interaction.commandName === "application-panel") {
     if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
@@ -462,106 +432,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply({ content: "تم إرسال لوحة التقديمات في هذا الروم.", ephemeral: true });
   }
 
-  if (interaction.commandName === "lock-everyone-channel-tools") {
-    if (!interaction.inGuild()) {
-      return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
-    }
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return interaction.reply({ content: "تحتاج صلاحية Manage Server لاستخدام الأمر.", ephemeral: true });
-    }
-
+  if (interaction.commandName === "admin-channel-permissions") {
+    if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.reply({ content: "تحتاج صلاحية Manage Server.", ephemeral: true });
     await interaction.deferReply({ ephemeral: true });
     try {
-      const result = await runLockEveryoneChannelTools(interaction.guild);
-      const embed = new EmbedBuilder()
-        .setColor(result.failed ? 0xD6B56D : 0xA3A785)
-        .setTitle("تم تطبيق صلاحيات @everyone")
-        .setDescription("تم منع @everyone من إدارة الرومات وإنشاء Public Threads وPrivate Threads.")
-        .addFields(
-          { name: "الرومات والتصنيفات المعدّلة", value: String(result.updated), inline: true },
-          { name: "تعذّر تعديلها", value: String(result.failed), inline: true }
-        )
-        .setFooter({ text: "Karen Flight • Permissions" })
-        .setTimestamp();
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (error) {
-      console.error("Lock channel tools error:", error);
-      await interaction.editReply({
-        content: "تعذر تطبيق الصلاحيات. تأكد أن البوت يملك Manage Roles وManage Channels."
-      });
-    }
-    return;
+      await interaction.guild.channels.fetch();
+      await interaction.guild.roles.fetch();
+      const adminRole = interaction.guild.roles.cache.find(role => role.name === "Administration");
+      if (!adminRole) return interaction.editReply({ content: "ما لقيت رول Administration." });
+      const restrictedAdmin = ["القوانين", "الرتب", "التقديم", "خاص"];
+      const reactionAllowed = ["الشات", "الصور", "الاساله", "الأسئلة"];
+      let changed = 0, failed = 0;
+      for (const channel of interaction.guild.channels.cache.values()) {
+        if (!channel.isTextBased() || channel.isThread()) continue;
+        const adminCanSpeak = !restrictedAdmin.some(key => channel.name.includes(key));
+        const everyoneCanReact = reactionAllowed.some(key => channel.name.includes(key));
+        try {
+          await channel.permissionOverwrites.edit(adminRole, { SendMessages: adminCanSpeak, AddReactions: adminCanSpeak, ReadMessageHistory: true }, { reason: "Karen Flight permissions" });
+          await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { AddReactions: everyoneCanReact }, { reason: "Karen Flight reaction permissions" });
+          changed++;
+        } catch (e) { failed++; console.error("Permissions update failed", channel.name, e); }
+      }
+      return interaction.editReply({ content: `تم تحديث صلاحيات الإدارة والرياكشنات في ${changed} روم. تعذر تعديل ${failed}.` });
+    } catch (e) { console.error(e); return interaction.editReply({ content: "صار خطأ أثناء تعديل الصلاحيات. تأكد أن البوت يملك Manage Channels." }); }
   }
-
-  if (interaction.commandName === "add-notification-roles") {
-    if (!interaction.inGuild()) {
-      return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
-    }
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return interaction.reply({ content: "تحتاج صلاحية Manage Server لاستخدام الأمر.", ephemeral: true });
-    }
-
-    await interaction.deferReply({ ephemeral: true });
-    try {
-      const results = await runAddNotificationRoles(interaction.guild);
-      const created = results.filter((item) => item.created);
-      const embed = new EmbedBuilder()
-        .setColor(0xA3A785)
-        .setTitle("تمت إضافة رولات الإشعار")
-        .setDescription(results.map(({ role }) => `• ${role}`).join("\n"))
-        .addFields(
-          { name: "الرولات الجديدة", value: String(created.length), inline: true },
-          { name: "إجمالي رولات الإشعار", value: String(results.length), inline: true }
-        )
-        .setFooter({ text: "Karen Flight • Notification Roles" })
-        .setTimestamp();
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (error) {
-      console.error("Notification roles error:", error);
-      await interaction.editReply({
-        content: "ما قدرت أضيف الرولات. تأكد أن البوت يملك Manage Roles وأن رتبته أعلى من الرولات الجديدة."
-      });
-    }
-    return;
-  }
-
-  if (interaction.commandName !== "setup") return;
-
-  if (!interaction.inGuild()) {
-    return interaction.reply({ content: "هذا الأمر يعمل داخل السيرفر فقط.", ephemeral: true });
-  }
-
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply({ content: "تحتاج صلاحية Manage Server لاستخدام هذا الأمر.", ephemeral: true });
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  try {
-    const result = await runSetup(interaction.guild);
-    const embed = new EmbedBuilder()
-      .setColor(0xA3A785)
-      .setTitle("تم تجهيز Karen Flight")
-      .setDescription("اكتمل إعداد الهيكل الأساسي للسيرفر. الرومات الموجودة مسبقاً لم يتم تكرارها.")
-      .addFields(
-        { name: "التصنيفات الجديدة", value: String(result.categoriesCreated), inline: true },
-        { name: "الرومات الجديدة", value: String(result.channelsCreated), inline: true },
-        { name: "رومات موجودة", value: String(result.channelsFound), inline: true },
-        { name: "الرتب التي تم التأكد منها", value: String(result.rolesCreated), inline: true }
-      )
-      .setFooter({ text: "Karen Flight • Setup" })
-      .setTimestamp();
-
-    await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
-    console.error("Setup error:", error);
-    await interaction.editReply({
-      content: "تعذر إكمال الإعداد. تأكد أن البوت يملك Manage Channels وManage Roles وView Channels وSend Messages، وأن رتبة البوت أعلى من الرتب التي ينشئها."
-    });
-  }
-});
 
 client.login(process.env.DISCORD_TOKEN);
 
